@@ -1,83 +1,159 @@
 package GUI;
 
-import callback.ViewCallback;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import javax.swing.GroupLayout;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.GroupLayout.Alignment;
-import javax.swing.LayoutStyle.ComponentPlacement;
-import protocol.EmailRecord;
+import javax.swing.JEditorPane;
 
-public class MailViewPanel extends JPanel {
-   private ViewCallback viewCallback;
-   private JButton btnBack;
-   private JScrollPane jScrollPane1;
-   private JLabel lblDate;
-   private JLabel lblFrom;
-   private JTextArea txtAreaBody;
-   private JTextField txtSubject;
+public class MailViewPanel extends javax.swing.JPanel {
 
-   public void setViewCallback(ViewCallback callback) {
-      this.viewCallback = callback;
-   }
+    private callback.ViewCallback viewCallback;
+    // Khai báo thêm JEditorPane để hiển thị HTML
+    private JEditorPane editorPaneBody;
 
-   public void setEmailDetails(EmailRecord email) {
-      if (email == null) {
-         this.clearFields();
-      } else {
-         this.lblFrom.setText("Từ: " + email.getSender());
-         this.txtSubject.setText(email.getSubject());
-         this.lblDate.setText("Ngày: " + email.getReceivedDate());
-         this.txtAreaBody.setText(email.getBodyContent());
-         this.txtAreaBody.setCaretPosition(0);
-      }
-   }
+    public void setViewCallback(callback.ViewCallback callback) {
+        this.viewCallback = callback;
+    }
 
-   public void clearFields() {
-      this.lblFrom.setText("Từ: ");
-      this.txtSubject.setText("");
-      this.lblDate.setText("Ngày: ");
-      this.txtAreaBody.setText("");
-   }
+    public MailViewPanel() {
+        initComponents();
+        setupHtmlViewer(); // Cấu hình trình xem HTML ngay khi khởi tạo
+    }
 
-   public MailViewPanel() {
-      this.initComponents();
-   }
+    /**
+     * Thay thế JTextArea bằng JEditorPane bên trong jScrollPane1
+     * mà không ảnh hưởng đến code tự sinh của NetBeans
+     */
+    private void setupHtmlViewer() {
+        editorPaneBody = new JEditorPane();
+        editorPaneBody.setContentType("text/html; charset=UTF-8");
+        editorPaneBody.setEditable(false);
+        
+        // Đưa editorPaneBody vào khung cuộn thay cho txtAreaBody
+        jScrollPane1.setViewportView(editorPaneBody);
+    }
 
-   private void initComponents() {
-      this.lblFrom = new JLabel();
-      this.lblDate = new JLabel();
-      this.txtSubject = new JTextField();
-      this.jScrollPane1 = new JScrollPane();
-      this.txtAreaBody = new JTextArea();
-      this.btnBack = new JButton();
-      this.lblFrom.setText("From:");
-      this.lblDate.setText("Date:");
-      this.txtSubject.setEditable(false);
-      this.txtSubject.setText("Subject");
-      this.txtAreaBody.setEditable(false);
-      this.txtAreaBody.setColumns(20);
-      this.txtAreaBody.setRows(5);
-      this.jScrollPane1.setViewportView(this.txtAreaBody);
-      this.btnBack.setText("Back");
-      this.btnBack.addActionListener(new ActionListener() {
-         public void actionPerformed(ActionEvent evt) {
-            MailViewPanel.this.btnBackActionPerformed(evt);
-         }
-      });
-      GroupLayout layout = new GroupLayout(this);
-      this.setLayout(layout);
-      layout.setHorizontalGroup(layout.createParallelGroup(Alignment.LEADING).addGroup(layout.createSequentialGroup().addContainerGap().addGroup(layout.createParallelGroup(Alignment.LEADING).addComponent(this.jScrollPane1, -1, 388, 32767).addGroup(layout.createSequentialGroup().addComponent(this.lblFrom).addPreferredGap(ComponentPlacement.RELATED, -1, 32767).addComponent(this.btnBack)).addGroup(layout.createSequentialGroup().addComponent(this.lblDate).addGap(0, 0, 32767)).addComponent(this.txtSubject)).addContainerGap()));
-      layout.setVerticalGroup(layout.createParallelGroup(Alignment.LEADING).addGroup(layout.createSequentialGroup().addContainerGap().addGroup(layout.createParallelGroup(Alignment.BASELINE).addComponent(this.btnBack).addComponent(this.lblFrom)).addPreferredGap(ComponentPlacement.RELATED).addComponent(this.lblDate).addPreferredGap(ComponentPlacement.RELATED).addComponent(this.txtSubject, -2, -1, -2).addPreferredGap(ComponentPlacement.RELATED).addComponent(this.jScrollPane1, -1, 209, 32767).addContainerGap()));
-   }
+        public void setEmailDetails(protocol.EmailRecord email) {
+        if (email == null) {
+            clearFields();
+            return;
+        }
 
-   private void btnBackActionPerformed(ActionEvent evt) {
-      this.viewCallback.onBackRequested();
-   }
+        // 1. Cập nhật Người gửi (JLabel)
+        lblFrom.setText("Từ: " + email.getSender());
+
+        // 2. Cập nhật Tiêu đề (JTextField)
+        txtSubject.setText(email.getSubject());
+
+        // 3. Cập nhật Ngày nhận (JLabel)
+        lblDate.setText("Ngày: " + email.getReceivedDate());
+
+        // 4. Lấy dữ liệu thô và GỌI BỘ GIẢI MÃ MIME
+        String rawContent = email.getBodyContent();
+        String content = protocol.MimeParser.parseRawBody(rawContent);
+
+        if (content == null) {
+            content = "";
+        }
+
+        // Nếu sau khi giải mã vẫn là chữ thuần (không có thẻ html), đổi dấu \n thành <br>
+        String lowerContent = content.toLowerCase();
+        if (!lowerContent.contains("<html") && !lowerContent.contains("<body") && !lowerContent.contains("<div")) {
+            content = "<html><body style='font-family: Sans-Serif; font-size: 12px;'>"
+                    + content.replace("\n", "<br>")
+                    + "</body></html>";
+        }
+
+        // 5. Hiển thị nội dung sạch lên JEditorPane và cuộn lên đầu trang
+        editorPaneBody.setText(content);
+        editorPaneBody.setCaretPosition(0);
+    }
+
+
+    /**
+     * Hàm xóa trống giao diện khi không có email nào được chọn
+     */
+    public void clearFields() {
+        lblFrom.setText("Từ: ");
+        txtSubject.setText("");
+        lblDate.setText("Ngày: ");
+        editorPaneBody.setText("");
+    }
+
+    @SuppressWarnings("unchecked")
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">                          
+    private void initComponents() {
+
+        lblFrom = new javax.swing.JLabel();
+        lblDate = new javax.swing.JLabel();
+        txtSubject = new javax.swing.JTextField();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        txtAreaBody = new javax.swing.JTextArea();
+        btnBack = new javax.swing.JButton();
+
+        lblFrom.setText("From:");
+
+        lblDate.setText("Date:");
+
+        txtSubject.setEditable(false);
+        txtSubject.setText("Subject");
+
+        txtAreaBody.setEditable(false);
+        txtAreaBody.setColumns(20);
+        txtAreaBody.setRows(5);
+        jScrollPane1.setViewportView(txtAreaBody);
+
+        btnBack.setText("Back");
+        btnBack.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnBackActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
+        this.setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 388, Short.MAX_VALUE)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(lblFrom)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(btnBack))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(lblDate)
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(txtSubject))
+                .addContainerGap())
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnBack)
+                    .addComponent(lblFrom))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblDate)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(txtSubject, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 209, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+    }// </editor-fold>                        
+
+    private void btnBackActionPerformed(java.awt.event.ActionEvent evt) {                                        
+        if (viewCallback != null) {
+            viewCallback.onBackRequested();
+        }
+    }                                       
+
+    // Variables declaration - do not modify                     
+    private javax.swing.JButton btnBack;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JLabel lblDate;
+    private javax.swing.JLabel lblFrom;
+    private javax.swing.JTextArea txtAreaBody;
+    private javax.swing.JTextField txtSubject;
+    // End of variables declaration                   
 }
