@@ -9,6 +9,7 @@
 *.zip
 *.tar.gz
 *.rar
+*.txt
 
 # NetBeans specific files & build folders
 /nbproject/private/
